@@ -17,32 +17,32 @@ const timeToMilitary = s => {
 const militaryToTime = t => {
 	const hour = ~~(t < 13 ? t : t-12), min = (t%1 * 60 + "").padStart(2, "0"); return `${hour}:${min}` }
 
-const colours = ["LightSkyBlue", "Tomato", "Wheat", "Gold", "LightGreen", "Thistle", "AliceBlue", "Orange"]
-class Parser {
-	constructor(s)	{ this.s = s.split("\n").filter(l => l.trim()); this.colours = [...colours] }
-	next()					{ return this.s.shift() }
-	skip(n)					{ this.s.splice(0, n) }
-	useColour()     { return this.colours.splice(~~(Math.random() * this.colours.length), 1)[0]; }
-	parseWhile(cond, parse, after = _ => {}) { const a = []; while (cond(this)) a.push(parse(this)), after(this); return a }
+const parse = s => {
+	s = s.split("\n").filter(l => l.trim())
+	let colours = ["LightSkyBlue", "Tomato", "Wheat", "Gold", "LightGreen", "Thistle", "AliceBlue", "Orange"]
+	const next = _ => s.shift(),
+	      skip = n => s.splice(0, n);
+	const useColour = _ => colours.splice(~~(Math.random() * colours.length), 1)[0];
+	const parseWhile = (cond, parse, after = _ => {}) => { const a = []; while (cond()) a.push(parse()), after(); return a }
 
-	nextIsTime() { return this.s[0] && this.s[0].match(/^(Mo|Tu|We|Th|Fr)/) }
-	day(s)       { return ["Mo", "Tu", "We", "Th", "Fr"].indexOf(s.slice(0, 2)) }
-	time(s)      { return s.slice(2).split(" - ").map(timeToMilitary) }
-	parseTime()  { const l = this.next(); return { day: this.day(l), time: this.time(l) } }
+	const nextIsTime = _ => s[0] && s[0].match(/^(Mo|Tu|We|Th|Fr)/),
+	      day        = d => ["Mo", "Tu", "We", "Th", "Fr"].indexOf(d.slice(0, 2)),
+	      time       = d => d.slice(2).split(" - ").map(timeToMilitary),
+	      parseTime  = _ => { const l = next(); return { day: day(l), time: time(l) } }
 
-	parseLocation() { return this.next().split("(")[1].replace(")", "") }
-	parseMeeting()  { return { ...this.parseTime(), location: this.parseLocation() } }
+	const parseLocation = _ => next().split("(")[1].replace(")", ""),
+	  		parseMeeting  = _ => ({ ...parseTime(), location: parseLocation() }),
+				parseSection  = _ => { skip(3); return parseWhile(nextIsTime, parseMeeting, _ => skip(2)) },
+				parseSections = _ => parseWhile(_ => !isNaN(s[0]), parseSection).flat(),
+				skipHeader    = _ => { while (!next().match(/^Class Nbr/)); },
+				parseName     = _ => { const name = next().split(" - ")[1]; skipHeader(); return name },
+				parseClass		= _ => ({ name: parseName(), meetings: parseSections(), colour: useColour() })
 
-	parseSection()  { this.skip(3); return this.parseWhile(p => p.nextIsTime(), p => p.parseMeeting(), p => p.skip(2)) }
-	parseSections() { return this.parseWhile(p => !isNaN(p.s[0]), p => p.parseSection()).flat() }
-	skipHeader()    { while (!this.next().match(/^Class Nbr/)); }
-	parseName()     { const name = this.next().split(" - ")[1]; this.skipHeader(); return name }
-	parseClass()    { return { name: this.parseName(), meetings: this.parseSections(), colour: this.useColour() } }
-	parse()         { return this.parseWhile(p => p.s.length, p => p.parseClass()) } }
-
-const toMeetings = parsed   => parsed.map(({ name, colour, meetings }) => meetings.map(m => ({ ...m, name, colour }))).flat()
-const sortDay    = day      => day.toSorted((d1, d2) => d1.time[0] - d2.time[0])
-const byDays     = meetings => Object.values(Object.groupBy(meetings, m => m.day)).map(sortDay)
+	const sortDay = day => day.toSorted((d1, d2) => d1.time[0] - d2.time[0])
+	const parsed   = parseWhile(_ => s.length, parseClass),
+				meetings = parsed.map(({ name, colour, meetings }) => meetings.map(m => ({ ...m, name, colour }))).flat(),
+				days     = Object.values(Object.groupBy(meetings, m => m.day)).map(sortDay)
+	return days }
 
 const c           = elt => document.createElement(elt)
 const headerElts  = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -64,6 +64,6 @@ const addDay     = (day) => addSpare(day.reduce(handleMeeting, start), end)
 const makeTable = days => { table.appendChild(header); t = c("tbody"); table.appendChild(t);
 	startEnd(days); addTimes(); days.forEach(d => addDay(d)); }
 
-go.onclick       = _ => { i.hidden = go.hidden = true; makeTable(byDays(toMeetings(new Parser(i.value).parse()))) }
+go.onclick       = _ => { i.hidden = go.hidden = true; makeTable(parse(i.value)) }
 window.onkeydown = e => { if (e.key !== "Enter") return; i.hidden = go.hidden = false; i.value = table.innerHTML = "" }
 </script>
