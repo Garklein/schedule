@@ -1,0 +1,69 @@
+<title>UOttawa Course Schedule</title>
+<body>
+	<textarea id="i"></textarea>
+	<button id="go">go (then, enter to return)</button>
+	<table id="table"></table>
+</body>
+
+<style>
+table, th, td { border: 1px solid; border-collapse: collapse; padding: 10px; text-align: center; margin: 30px; }
+</style>
+
+<script>
+const timeToMilitary = s => {
+	const [h, m] = s.split(":"), hour = +h, min = (+m[0] >> 1) / 2, ampm = m.match(/PM/) && hour !== 12 ? 12 : 0;
+	return hour + min + ampm }
+
+const militaryToTime = t => {
+	const hour = ~~(t < 13 ? t : t-12), min = (t%1 * 60 + "").padStart(2, "0"); return `${hour}:${min}` }
+
+const colours = ["LightSkyBlue", "Tomato", "Wheat", "Gold", "LightGreen", "Thistle", "AliceBlue", "Orange"]
+class Parser {
+	constructor(s)	{ this.s = s.split("\n").filter(l => l.trim()); this.colours = [...colours] }
+	next()					{ return this.s.shift() }
+	skip(n)					{ this.s.splice(0, n) }
+	useColour()     { return this.colours.splice(~~(Math.random() * this.colours.length), 1)[0]; }
+	parseWhile(cond, parse, after = _ => {}) { const a = []; while (cond(this)) a.push(parse(this)), after(this); return a }
+
+	nextIsTime() { return this.s[0] && this.s[0].match(/^(Mo|Tu|We|Th|Fr)/) }
+	day(s)       { return ["Mo", "Tu", "We", "Th", "Fr"].indexOf(s.slice(0, 2)) }
+	time(s)      { return s.slice(2).split(" - ").map(timeToMilitary) }
+	parseTime()  { const l = this.next(); return { day: this.day(l), time: this.time(l) } }
+
+	parseLocation() { return this.next().split("(")[1].replace(")", "") }
+	parseMeeting()  { return { ...this.parseTime(), location: this.parseLocation() } }
+
+	parseSection()  { this.skip(3); return this.parseWhile(p => p.nextIsTime(), p => p.parseMeeting(), p => p.skip(2)) }
+	parseSections() { return this.parseWhile(p => !isNaN(p.s[0]), p => p.parseSection()).flat() }
+	skipHeader()    { while (!this.next().match(/^Class Nbr/)); }
+	parseName()     { const name = this.next().split(" - ")[1]; this.skipHeader(); return name }
+	parseClass()    { return { name: this.parseName(), meetings: this.parseSections(), colour: this.useColour() } }
+	parse()         { return this.parseWhile(p => p.s.length, p => p.parseClass()) } }
+
+const toMeetings = parsed   => parsed.map(({ name, colour, meetings }) => meetings.map(m => ({ ...m, name, colour }))).flat()
+const sortDay    = day      => day.toSorted((d1, d2) => d1.time[0] - d2.time[0])
+const byDays     = meetings => Object.values(Object.groupBy(meetings, m => m.day)).map(sortDay)
+
+const c           = elt => document.createElement(elt)
+const headerElts  = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+const headerNodes = headerElts.map(h => { const elt = c("th"); elt.textContent = h; return elt })
+const header      = c("thead"); header.insertRow(), headerNodes.forEach(h => header.rows[0].appendChild(h))
+
+var start, end, t;
+const startEnd = days => { const ts = days.flat().map(m => m.time).flat(); start = Math.min(...ts), end = Math.max(...ts) }
+
+const addTimes   = _ => { for (let i = start; i < end; i += 1/2) t.insertRow().insertCell().textContent = militaryToTime(i) }
+const addBlock   = (s, e) => { if (e <= s) return; const cell = t.rows[(s-start)*2].insertCell();
+	cell.rowSpan   = (e-s)*2; return cell; }
+const addSpare   = (s, e) => { const spare = addBlock(s, e); if (spare) spare.style.border = "0px" }
+const addMeeting = ({ time, name, location, colour }) => { const meeting = addBlock(...time);
+	meeting.innerHTML = `${name}<br>${location}`; meeting.style.backgroundColor = colour }
+const handleMeeting = (i, m) => m.time[0] < i ? i : (addSpare(i, m.time[0]), addMeeting(m), m.time[1])
+const addDay     = (day) => addSpare(day.reduce(handleMeeting, start), end)
+
+const makeTable = days => { table.appendChild(header); t = c("tbody"); table.appendChild(t);
+	startEnd(days); addTimes(); days.forEach(d => addDay(d)); }
+
+go.onclick       = _ => { i.hidden = go.hidden = true; makeTable(byDays(toMeetings(new Parser(i.value).parse()))) }
+window.onkeydown = e => { if (e.key !== "Enter") return; i.hidden = go.hidden = false; i.value = table.innerHTML = "" }
+</script>
