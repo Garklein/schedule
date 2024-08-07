@@ -44,7 +44,7 @@ const parse = s => {
 	return Object.values(Object.groupBy(events, e => e.day)).map(sortDay) }
 
 const makeTable = days => {
-	const c = (elt, par, cb = _ => {}) => { elt = document.createElement(elt); par.appendChild(elt); cb(elt); return elt }
+	const c = (elt, par, cb = _ => {}) => cb(par.appendChild(document.createElement(elt)))
 
 	const makeHeader = h => {
 		const titles = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -60,7 +60,7 @@ const makeTable = days => {
 		const addDay = d => { const lastClass = d.reduce(handleEvent, start); addSpare(lastClass, end) }
 		for (let t = start; t < end; t += 1/2) b.insertRow().insertCell().textContent = militaryToTime(t); days.forEach(addDay) }
 
-	c("thead", table, makeHeader); c("tbody", table, makeBody); }
+	c("thead", table, makeHeader); c("tbody", table, makeBody) }
 
 go.onclick       = _ => { i.hidden = go.hidden = true; makeTable(parse(i.value)) }
 window.onkeydown = e => { if (e.key !== "Enter") return; i.hidden = go.hidden = false; i.value = table.innerHTML = "" }
