@@ -25,7 +25,7 @@ const parse = s => {
 	const useColour = _ => colours.splice(~~(Math.random() * colours.length), 1)[0]
 	const parseWhile = (cond, parse, after = _ => {}) => { const a = []; while (cond()) a.push(parse()), after(); return a }
 
-	const nextIsTime = _ => s[0] && s[0].match(/^(Mo|Tu|We|Th|Fr)/),
+	const nextIsTime = _ => s[0]?.match(/^(Mo|Tu|We|Th|Fr)/),
 	      day        = d => ["Mo", "Tu", "We", "Th", "Fr"].indexOf(d.slice(0, 2)),
 	      time       = d => d.slice(2).split(" - ").map(timeToMilitary),
 	      parseTime  = _ => { const l = next(); return { day: day(l), time: time(l) } }
