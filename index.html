@@ -31,16 +31,16 @@ const parse = s => {
 	      parseTime  = _ => { const l = next(); return { day: day(l), time: time(l) } }
 
 	const parseLocation = _ => next().split("(")[1].replace(")", ""),
-	  		parseEvent    = _ => ({ ...parseTime(), location: parseLocation() }),
-				parseSection  = _ => { skip(3); return parseWhile(nextIsTime, parseEvent, _ => skip(2)) },
-				skipHeader    = _ => { while (!next().match(/^Class Nbr/)); },
-				parseBody     = _ => (skipHeader(), parseWhile(_ => !isNaN(s[0]), parseSection).flat()),
-				parseName     = _ => next().split(" - ")[1],
-				parseClass		= _ => ({ name: parseName(), events: parseBody(), colour: useColour() })
+	      parseEvent    = _ => ({ ...parseTime(), location: parseLocation() }),
+	      parseSection  = _ => { skip(3); return parseWhile(nextIsTime, parseEvent, _ => skip(2)) },
+	      skipHeader    = _ => { while (!next().match(/^Class Nbr/)); },
+	      parseBody     = _ => (skipHeader(), parseWhile(_ => !isNaN(s[0]), parseSection).flat()),
+	      parseName     = _ => next().split(" - ")[1],
+	      parseClass    = _ => ({ name: parseName(), events: parseBody(), colour: useColour() })
 
 	const sortDay = day => day.toSorted((d1, d2) => d1.time[0] - d2.time[0])
 	const parsed   = parseWhile(_ => s.length, parseClass),
-				events = parsed.map(({ name, colour, events }) => events.map(e => ({ ...e, name, colour }))).flat()
+	      events = parsed.map(({ name, colour, events }) => events.map(e => ({ ...e, name, colour }))).flat()
 	return Object.values(Object.groupBy(events, e => e.day)).map(sortDay) }
 
 const makeTable = days => {
